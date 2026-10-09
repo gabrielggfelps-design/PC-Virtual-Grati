@@ -1,0 +1,44 @@
+name: PC Virtual com Tailscale
+
+on:
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Instalar XFCE e VNC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xfce4 xfce4-terminal \
+            tigervnc-standalone-server \
+            dbus-x11
+
+      - name: Conectar ao Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Preparar ambiente gráfico
+        run: |
+          mkdir -p ~/.vnc
+          printf '#!/bin/sh\nstartxfce4\n' > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
+
+      - name: Iniciar VNC
+        env:
+          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
+        run: |
+          mkdir -p ~/.vnc
+          printf '%s\n' "$VNC_PASSWORD" |
+            vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+          vncserver :1 -geometry 1280x720 -depth 24
+
+      - name: Manter execução
+        run: sleep 1500
